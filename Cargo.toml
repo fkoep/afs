@@ -1,0 +1,14 @@
+[package]
+name = "afs"
+version = "0.1.0"
+authors = ["Felix Köpge <fkoep@mailbox.org>"]
+license = "MIT"
+
+[features]
+default = ["xdg"]
+
+[dependencies]
+bitflags = "0.7"
+lazy_static = "*"
+tempdir = { version = "*" }
+xdg = { version = "*", optional = true }
