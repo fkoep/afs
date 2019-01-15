@@ -36,25 +36,25 @@ pub const CONFIG_DIR: &'static str = "$config";
 
 #[cfg(not(feature = "xdg"))]
 fn xdg_path(
-    prefix: Option<&Path>, 
+    prefix: Option<&Path>,
     profile: Option<&Path>,
-    path: &Path
+    path: &Path,
 ) -> Option<Result<PathBuf, Box<Error>>> {
     None
 }
 
 #[cfg(feature = "xdg")]
 fn xdg_path(
-    prefix: Option<&Path>, 
+    prefix: Option<&Path>,
     profile: Option<&Path>,
-    path: &Path
+    path: &Path,
 ) -> Result<Option<PathBuf>, Box<Error>> {
     use xdg::BaseDirectories;
 
     let xdg = match (prefix, profile) {
         (Some(prefix), Some(profile)) => BaseDirectories::with_profile(prefix, profile)?,
         (Some(prefix), None) => BaseDirectories::with_prefix(prefix)?,
-        _ => BaseDirectories::new()?
+        _ => BaseDirectories::new()?,
     };
 
     let (real_prefix, rest) = if let Ok(rest) = path.strip_prefix(DATA_HOME_DIR) {
@@ -68,7 +68,7 @@ fn xdg_path(
     } else if let Ok(rest) = path.strip_prefix(CONFIG_DIR) {
         (xdg.get_config_dirs().remove(0), rest)
     } else {
-        return Ok(None)
+        return Ok(None);
     };
 
     let mut ret = real_prefix;
@@ -78,8 +78,8 @@ fn xdg_path(
 
 fn canonicalize(
     prefix: Option<&Path>,
-    profile: Option<&Path>, 
-    path: &Path
+    profile: Option<&Path>,
+    path: &Path,
 ) -> Result<PathBuf, Box<Error>> {
     super::validate_path(&path)?;
 
@@ -110,30 +110,20 @@ impl From<fs::File> for StdFile {
 //}
 
 impl io::Read for StdFile {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.0.read(buf)
-    }
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> { self.0.read(buf) }
 }
 
 impl io::Seek for StdFile {
-    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
-        self.0.seek(pos)
-    }
+    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> { self.0.seek(pos) }
 }
 
 impl io::Write for StdFile {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.0.write(buf)
-    }
-    fn flush(&mut self) -> io::Result<()> {
-        self.0.flush()
-    }
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> { self.0.write(buf) }
+    fn flush(&mut self) -> io::Result<()> { self.0.flush() }
 }
 
 impl File for StdFile {
-    fn metadata(&self) -> io::Result<Metadata> {
-        self.0.metadata().map(|meta| meta.into())
-    }
+    fn metadata(&self) -> io::Result<Metadata> { self.0.metadata().map(|meta| meta.into()) }
 }
 
 // ++++++++++++++++++++ StdFs ++++++++++++++++++++
@@ -147,34 +137,46 @@ pub struct StdFs {
 impl StdFs {
     fn _new(base: PathBuf) -> Result<Self, Box<Error>> {
         // TODO ensure base exists & is dir
-        Ok(Self{ base })
+        Ok(Self { base })
     }
     pub fn new<P>(base: P) -> Result<Self, Box<Error>>
-        where P: AsRef<Path>
+    where
+        P: AsRef<Path>,
     {
         Self::_new(canonicalize(None, None, base.as_ref())?)
     }
     pub fn with_prefix<P1, P2>(prefix: P1, base: P2) -> Result<Self, Box<Error>>
-
-        where P1: AsRef<Path>, P2: AsRef<Path>
+    where
+        P1: AsRef<Path>,
+        P2: AsRef<Path>,
     {
         Self::_new(canonicalize(Some(prefix.as_ref()), None, base.as_ref())?)
     }
-    pub fn with_profile<P1, P2, P3>(prefix: P1, profile: P2, base: P3) -> Result<Self, Box<Error>>
-
-        where P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>
+    pub fn with_profile<P1, P2, P3>(
+        prefix: P1,
+        profile: P2,
+        base: P3,
+    ) -> Result<Self, Box<Error>>
+    where
+        P1: AsRef<Path>,
+        P2: AsRef<Path>,
+        P3: AsRef<Path>,
     {
-        Self::_new(canonicalize(Some(prefix.as_ref()), Some(profile.as_ref()), base.as_ref())?)
+        Self::_new(canonicalize(
+            Some(prefix.as_ref()),
+            Some(profile.as_ref()),
+            base.as_ref(),
+        )?)
     }
 }
 
 impl Filesystem for StdFs {
-	fn metadata(&self, vpath: &Path) -> io::Result<Metadata> {
+    fn metadata(&self, vpath: &Path) -> io::Result<Metadata> {
         let _ = super::validate_path(vpath)?;
 
         fs::metadata(self.base.join(vpath)).map(|meta| meta.into())
     }
-	fn open_file(&self, vpath: &Path, opts: OpenOptions) -> io::Result<Box<File>> {
+    fn open_file(&self, vpath: &Path, opts: OpenOptions) -> io::Result<Box<File>> {
         let _ = super::validate_path(vpath)?;
 
         let file = fs::OpenOptions::new()
@@ -192,7 +194,7 @@ impl Filesystem for StdFs {
 
         fs::remove_file(self.base.join(vpath))
     }
-	fn read_dir(&self, vpath: &Path) -> io::Result<BTreeMap<PathBuf, Metadata>> {
+    fn read_dir(&self, vpath: &Path) -> io::Result<BTreeMap<PathBuf, Metadata>> {
         let _ = super::validate_path(vpath)?;
 
         let mut ret = BTreeMap::new();
@@ -225,4 +227,3 @@ impl Filesystem for StdFs {
         fs::remove_dir_all(self.base.join(vpath))
     }
 }
-

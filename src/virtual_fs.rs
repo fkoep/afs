@@ -1,9 +1,9 @@
 use filesystem::*;
 use std::collections::BTreeMap;
 use std::error::Error;
-use std::path::{Path, PathBuf};
 use std::fmt;
 use std::io;
+use std::path::{Path, PathBuf};
 
 // ++++++++++++++++++++ MountError ++++++++++++++++++++
 
@@ -13,7 +13,8 @@ pub enum MountError {
     /// See `::validate_path()`.
     InvalidPath,
 
-    /// Locations must have distinct paths. No path may be a sub-path of another.
+    /// Locations must have distinct paths. No path may be a sub-path of
+    /// another.
     LocationOverlap,
 }
 
@@ -25,7 +26,7 @@ impl fmt::Display for MountError {
 }
 
 impl Error for MountError {
-    fn description(&self) -> &str { 
+    fn description(&self) -> &str {
         match self {
             &MountError::InvalidPath => "Mount error: Invalid path",
             &MountError::LocationOverlap => "Mount error: Location overlap",
@@ -44,18 +45,22 @@ impl VirtualFs {
     pub fn new() -> Self { Self::default() }
 
     #[must_use]
-    pub fn mount<P, F>(&mut self, vpath: P, fs: F) -> Result<(), MountError> 
-        where P: Into<PathBuf>, F: Filesystem + 'static
+    pub fn mount<P, F>(&mut self, vpath: P, fs: F) -> Result<(), MountError>
+    where
+        P: Into<PathBuf>,
+        F: Filesystem + 'static,
     {
         let vpath = vpath.into();
         if !super::is_valid_path(&vpath) {
-            return Err(MountError::InvalidPath)
-        } 
+            return Err(MountError::InvalidPath);
+        }
 
-        if self.mounted.keys()
+        if self
+            .mounted
+            .keys()
             .any(|vbase| vbase.starts_with(&vpath) || vpath.starts_with(vbase))
         {
-            return Err(MountError::LocationOverlap)
+            return Err(MountError::LocationOverlap);
         }
 
         self.mounted.insert(vpath, Box::new(fs));
@@ -63,23 +68,22 @@ impl VirtualFs {
     }
 
     pub fn unmount<P>(&mut self, vpath: &P) -> Option<Box<Filesystem>>
-        where P: AsRef<Path>
+    where
+        P: AsRef<Path>,
     {
         self.mounted.remove(vpath.as_ref())
     }
 
-    pub fn unmount_all(&mut self){
-        self.mounted.clear()
-    }
+    pub fn unmount_all(&mut self) { self.mounted.clear() }
 }
 
-const VDIR_META: Metadata = Metadata{
-	is_readonly: true,
-	file_type: DIRECTORY,
+const VDIR_META: Metadata = Metadata {
+    is_readonly: true,
+    file_type: DIRECTORY,
     len: None,
-	created: None,
-	accessed: None,
-	modified: None,
+    created: None,
+    accessed: None,
+    modified: None,
 };
 
 // TODO include path
@@ -94,26 +98,26 @@ fn permission_denied<R>() -> io::Result<R> {
 }
 
 impl Filesystem for VirtualFs {
-	fn metadata(&self, vpath: &Path) -> io::Result<Metadata> {
+    fn metadata(&self, vpath: &Path) -> io::Result<Metadata> {
         let _ = super::validate_path(vpath)?;
 
         for (vbase, fs) in &self.mounted {
             if let Ok(vrest) = vpath.strip_prefix(vbase) {
-                return fs.metadata(vrest)
+                return fs.metadata(vrest);
             } else if vbase.starts_with(vpath) {
-                return Ok(VDIR_META)
+                return Ok(VDIR_META);
             }
         }
         not_found()
     }
-	fn open_file(&self, vpath: &Path, opts: OpenOptions) -> io::Result<Box<File>> {
+    fn open_file(&self, vpath: &Path, opts: OpenOptions) -> io::Result<Box<File>> {
         let _ = super::validate_path(vpath)?;
 
         for (vbase, fs) in &self.mounted {
             if let Ok(vrest) = vpath.strip_prefix(vbase) {
-                return fs.open_file(vrest, opts)
+                return fs.open_file(vrest, opts);
             } else if vbase.starts_with(vpath) {
-                return permission_denied()
+                return permission_denied();
             }
         }
         not_found()
@@ -123,21 +127,21 @@ impl Filesystem for VirtualFs {
 
         for (vbase, fs) in &self.mounted {
             if let Ok(vrest) = vpath.strip_prefix(vbase) {
-                return fs.remove_file(vrest)
+                return fs.remove_file(vrest);
             } else if vbase.starts_with(vpath) {
-                return permission_denied()
+                return permission_denied();
             }
         }
         not_found()
     }
-	fn read_dir(&self, vpath: &Path) -> io::Result<BTreeMap<PathBuf, Metadata>> {
+    fn read_dir(&self, vpath: &Path) -> io::Result<BTreeMap<PathBuf, Metadata>> {
         let _ = super::validate_path(vpath)?;
 
         let mut ret = BTreeMap::new();
         for (vbase, fs) in &self.mounted {
             if let Ok(vrest) = vpath.strip_prefix(vbase) {
                 debug_assert!(ret.is_empty());
-                return fs.read_dir(vrest)
+                return fs.read_dir(vrest);
             } else if let Ok(vdir) = vbase.strip_prefix(vpath) {
                 ret.insert(vdir.to_owned(), VDIR_META);
             }
@@ -153,8 +157,8 @@ impl Filesystem for VirtualFs {
 
         for (vbase, fs) in &self.mounted {
             if let Ok(vrest) = vpath.strip_prefix(vbase) {
-                return fs.create_dir(vrest)
-            } 
+                return fs.create_dir(vrest);
+            }
         }
         permission_denied()
     }
@@ -163,8 +167,8 @@ impl Filesystem for VirtualFs {
 
         for (vbase, fs) in &self.mounted {
             if let Ok(vrest) = vpath.strip_prefix(vbase) {
-                return fs.create_dir_all(vrest)
-            } 
+                return fs.create_dir_all(vrest);
+            }
         }
         permission_denied()
     }
@@ -173,9 +177,9 @@ impl Filesystem for VirtualFs {
 
         for (vbase, fs) in &self.mounted {
             if let Ok(vrest) = vpath.strip_prefix(vbase) {
-                return fs.remove_dir(vrest)
+                return fs.remove_dir(vrest);
             } else if vbase.starts_with(vpath) {
-                return permission_denied()
+                return permission_denied();
             }
         }
         not_found()
@@ -185,9 +189,9 @@ impl Filesystem for VirtualFs {
 
         for (vbase, fs) in &self.mounted {
             if let Ok(vrest) = vpath.strip_prefix(vbase) {
-                return fs.remove_dir_all(vrest)
+                return fs.remove_dir_all(vrest);
             } else if vbase.starts_with(vpath) {
-                return permission_denied()
+                return permission_denied();
             }
         }
         not_found()
