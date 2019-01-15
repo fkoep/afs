@@ -1,5 +1,5 @@
 [package]
-name = "afs"
+name = "myfs"
 version = "0.1.0"
 authors = ["Felix Köpge <fkoep@mailbox.org>"]
 license = "MIT"
